@@ -21,6 +21,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libssl-dev bc liblz4-tool make kmod libncurses5-dev
 
+      - name: Setup Compiler Cache (ccache)
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-kernel-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-kernel-ccache-
+
       - name: Clone Kernel Source
         run: |
           git clone --recurse-submodules https://github.com/realme-mediatek-dev/android_kernel_realme_mt6853.git -b android-12.0 kernel
@@ -33,16 +41,19 @@ jobs:
           rm -rf "$KERNEL_DIR/kernel/sched_assist"
           rm -rf "$KERNEL_DIR/block/foreground_io_opt"
           rm -rf "$KERNEL_DIR/mm/malloc_track"
+          rm -rf "$KERNEL_DIR/mm/task_mem"
           
           # 2. Force create the clean directories
           mkdir -p "$KERNEL_DIR/kernel/sched_assist"
           mkdir -p "$KERNEL_DIR/block/foreground_io_opt"
           mkdir -p "$KERNEL_DIR/mm/malloc_track"
+          mkdir -p "$KERNEL_DIR/mm/task_mem"
           
           # 3. Create the empty dummy Kconfig files
           touch "$KERNEL_DIR/kernel/sched_assist/Kconfig"
           touch "$KERNEL_DIR/block/foreground_io_opt/Kconfig"
           touch "$KERNEL_DIR/mm/malloc_track/Kconfig.compat"
+          touch "$KERNEL_DIR/mm/task_mem/Kconfig"
 
       - name: Clone Toolchain (Clang)
         run: |
@@ -70,19 +81,26 @@ jobs:
           export SUBARCH=arm64
           export O=out
           
-          # Assign absolute toolchain bin directory path
+          # Setup Toolchain
           TC_DIR="${{ github.workspace }}/clang-llvm/bin"
           export PATH="${TC_DIR}:${PATH}"
           
+          # Setup ccache parameters
+          export CCACHE_DIR="${HOME}/.ccache"
+          ccache -M 10G
+          
           make O=out k6853v1_64_defconfig
           
-          # Use internal toolchain binaries explicitly to bypass host package problems
+          # Compile using ccache wrapped toolchain binaries
           make -j$(nproc) O=out \
-            CC=clang \
+            CC="ccache clang" \
             LLVM=1 \
             LLVM_IAS=0 \
             CROSS_COMPILE="${TC_DIR}/aarch64-linux-gnu-" \
             CROSS_COMPILE_ARM32="${TC_DIR}/arm-linux-gnueabi-"
+            
+          # Print cache stats to terminal logs
+          ccache -s
 
       - name: Package with AnyKernel3
         run: |
