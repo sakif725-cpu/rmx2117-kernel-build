@@ -29,21 +29,17 @@ jobs:
         run: |
           KERNEL_DIR="${{ github.workspace }}/kernel"
           
-          # Safely handle sched_assist directory and Kconfig
-          if [ ! -d "$KERNEL_DIR/kernel/sched_assist" ]; then
-            mkdir -p "$KERNEL_DIR/kernel/sched_assist"
-          fi
-          if [ ! -f "$KERNEL_DIR/kernel/sched_assist/Kconfig" ]; then
-            : > "$KERNEL_DIR/kernel/sched_assist/Kconfig"
-          fi
+          # 1. Nuke whatever broken files/symlinks are blocking the paths
+          rm -rf "$KERNEL_DIR/kernel/sched_assist"
+          rm -rf "$KERNEL_DIR/block/foreground_io_opt"
           
-          # Safely handle foreground_io_opt directory and Kconfig
-          if [ ! -d "$KERNEL_DIR/block/foreground_io_opt" ]; then
-            mkdir -p "$KERNEL_DIR/block/foreground_io_opt"
-          fi
-          if [ ! -f "$KERNEL_DIR/block/foreground_io_opt/Kconfig" ]; then
-            : > "$KERNEL_DIR/block/foreground_io_opt/Kconfig"
-          fi
+          # 2. Force create the clean directories
+          mkdir -p "$KERNEL_DIR/kernel/sched_assist"
+          mkdir -p "$KERNEL_DIR/block/foreground_io_opt"
+          
+          # 3. Create the empty dummy Kconfig files
+          touch "$KERNEL_DIR/kernel/sched_assist/Kconfig"
+          touch "$KERNEL_DIR/block/foreground_io_opt/Kconfig"
 
       - name: Clone Toolchain (Clang)
         run: |
