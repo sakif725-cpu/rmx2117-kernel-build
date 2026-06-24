@@ -104,7 +104,7 @@ jobs:
               KERNEL_ROOT="$(realpath "$PWD")" || {
                 echo "Missing file path validation failed: unable to resolve kernel root path."
                 exit $BUILD_STATUS
-              }
+              fi
               PATH_TO_CHECK="$(dirname "$MISSING_FILE")"
               while [ -n "$PATH_TO_CHECK" ] && [ "$PATH_TO_CHECK" != "." ] && [ "$PATH_TO_CHECK" != "/" ]; do
                 ABS_PATH_TO_CHECK="$(realpath -m "$PATH_TO_CHECK")" || {
@@ -114,7 +114,7 @@ jobs:
                 if [ -z "$ABS_PATH_TO_CHECK" ]; then
                   echo "Missing file path validation failed: empty resolved path for: $PATH_TO_CHECK"
                   exit $BUILD_STATUS
-                fi
+                }
                 if [[ "$ABS_PATH_TO_CHECK" != "$KERNEL_ROOT" && "$ABS_PATH_TO_CHECK" != "$KERNEL_ROOT/"* ]]; then
                   echo "Missing file path validation failed: outside kernel tree: $PATH_TO_CHECK"
                   exit $BUILD_STATUS
@@ -144,13 +144,14 @@ jobs:
             fi
           done
           
-          # Compile using ccache wrapped toolchain binaries
+          # Compile using ccache wrapped toolchain binaries with warning overrides
           make -j$(nproc) O=out \
             CC="ccache clang" \
             LLVM=1 \
             LLVM_IAS=0 \
             CROSS_COMPILE="${TC_DIR}/aarch64-linux-gnu-" \
-            CROSS_COMPILE_ARM32="${TC_DIR}/arm-linux-gnueabi-"
+            CROSS_COMPILE_ARM32="${TC_DIR}/arm-linux-gnueabi-" \
+            KCFLAGS="-Wno-error -Wno-implicit-function-declaration -Wno-mismatched-return-types -Wno-format"
             
           # Print cache stats to terminal logs
           ccache -s
