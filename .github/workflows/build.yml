@@ -20,7 +20,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libssl-dev bc liblz4-tool make kmod libncurses5-dev
-
+      - name: Install LLVM
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm lld clang
       - name: Setup Compiler Cache (ccache)
         uses: actions/cache@v4
         with:
