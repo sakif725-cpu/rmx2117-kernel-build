@@ -19,7 +19,10 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libssl-dev bc liblz4-tool make kmod libncurses5-dev gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi lld
+          # Split into two commands to avoid dependency locking/conflicts
+          sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libssl-dev bc liblz4-tool make kmod libncurses5-dev
+          # Install cross-compilers separately to allow APT to resolve conflicts better
+          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi
 
       - name: Setup Compiler Cache (ccache)
         uses: actions/cache@v4
@@ -58,99 +61,37 @@ jobs:
           export ARCH=arm64
           export SUBARCH=arm64
           export O=out
-          
           # Setup Toolchain
           TC_DIR="${{ github.workspace }}/clang-llvm/bin"
           export PATH="${TC_DIR}:${PATH}"
-          
-          # Setup ccache parameters
-          export CCACHE_DIR="${HOME}/.ccache"
-          ccache -M 10G
-          
-          echo "Executing self-healing configuration engine..."
-          while true; do
-            # Temporarily disable GitHub Actions strict error crashing
-            set +e
-            
-            # Run defconfig generation and capture output
-            BUILD_LOG=$(make O=out k6853v1_64_defconfig 2>&1)
-            BUILD_STATUS=$?
-            
-            # Re-enable strict error crashing
-            set -e
-            
-            if [ $BUILD_STATUS -eq 0 ]; then
-              echo "Defconfig generated successfully!"
-              break
-            fi
-            
-            # Check if failure is due to a missing Kconfig include target
-            if echo "$BUILD_LOG" | grep -q "can't open file"; then
-              MISSING_FILE=$(echo "$BUILD_LOG" | grep "can't open file" | sed -e 's/.*can'\''t open file "//' -e 's/"//')
-              TARGET_DIR="$(dirname "$MISSING_FILE")"
-              
-              echo "-> Detected missing configuration target: $MISSING_FILE"
-              echo "-> Dynamic resolution: Clearing path structural blockages..."
-              
-              # Safely trace the path segments from left to right and destroy non-directory blockers
-              CURRENT_PATH=""
-              IFS='/' read -r -a segments <<< "$TARGET_DIR"
-              for segment in "${segments[@]}"; do
-                if [ -z "$CURRENT_PATH" ]; then
-                  CURRENT_PATH="$segment"
-                else
-                  CURRENT_PATH="$CURRENT_PATH/$segment"
-                fi
-                
-                if [ -e "$CURRENT_PATH" ] || [ -L "$CURRENT_PATH" ]; then
-                  if [ ! -d "$CURRENT_PATH" ]; then
-                    echo "   [Bulldozer] Removing blocking non-directory file: $CURRENT_PATH"
-                    rm -f "$CURRENT_PATH"
-                  fi
-                fi
-              done
-              
-              # Create clean structure and dummy files safely
-              mkdir -p "$TARGET_DIR"
-              touch "$MISSING_FILE"
-              
-              # Only create a dummy Makefile if we are inside a subfolder to protect root files
-              if [ "$TARGET_DIR" != "." ]; then
-                touch "$TARGET_DIR/Makefile"
-              fi
-            else
-              echo "Defconfig engine hit an unresolvable structural error:"
-              echo "$BUILD_LOG"
-              exit $BUILD_STATUS
-            fi
-          done
-          
+
           echo "Injecting Phantom Headers for missing Realme source code..."
           rm -rf include/linux/sched_assist
           mkdir -p include/linux/sched_assist
+          # Creating a broad set of phantom headers to satisfy the compiler
           touch include/linux/sched_assist/sched_assist_mutex.h
           touch include/linux/sched_assist/sched_assist_rwsem.h
           touch include/linux/sched_assist/sched_assist_spinlock.h
+          touch include/linux/sched_assist/sched_assist_wait.h
           
           echo "Starting Core Kernel Compilation with Warning Shields..."
           
-          # Compile using ccache wrapped toolchain binaries with LLVM Linkers and warning overrides
+          # Force the use of LLVM tools for host and target to prevent assembler crashes
           make -j$(nproc) O=out \
-            CC="ccache clang" \
+            CC="clang" \
             LD="ld.lld" \
             AR="llvm-ar" \
             NM="llvm-nm" \
             OBJCOPY="llvm-objcopy" \
             OBJDUMP="llvm-objdump" \
             STRIP="llvm-strip" \
+            READELF="llvm-readelf" \
+            OBJSIZE="llvm-size" \
             LLVM=1 \
             LLVM_IAS=1 \
             CROSS_COMPILE="aarch64-linux-gnu-" \
             CROSS_COMPILE_ARM32="arm-linux-gnueabi-" \
             KCFLAGS="-Wno-error -Wno-implicit-function-declaration -Wno-mismatched-return-types -Wno-format"
-            
-          # Print cache stats to terminal logs
-          ccache -s
 
       - name: Package with AnyKernel3
         run: |
