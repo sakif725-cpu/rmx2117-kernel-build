@@ -19,8 +19,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          # Added gcc-aarch64-linux-gnu and gcc-arm-linux-gnueabi to provide the fallback assemblers for LLVM_IAS=0
-          sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libssl-dev bc liblz4-tool make kmod libncurses5-dev gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
+          sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libssl-dev bc liblz4-tool make kmod libncurses5-dev
 
       - name: Clone Kernel Source
         run: |
@@ -51,17 +50,20 @@ jobs:
           export ARCH=arm64
           export SUBARCH=arm64
           export O=out
-          export PATH="${{ github.workspace }}/clang-llvm/bin:${PATH}"
+          
+          # Assign absolute toolchain bin directory path
+          TC_DIR="${{ github.workspace }}/clang-llvm/bin"
+          export PATH="${TC_DIR}:${PATH}"
           
           make O=out k6853v1_64_defconfig
           
-          # Using dynamic threads. GNU fallback assembler will successfully bridge through system paths now
+          # Use internal toolchain binaries explicitly to bypass host package problems
           make -j$(nproc) O=out \
             CC=clang \
             LLVM=1 \
             LLVM_IAS=0 \
-            CROSS_COMPILE=aarch64-linux-gnu- \
-            CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+            CROSS_COMPILE="${TC_DIR}/aarch64-linux-gnu-" \
+            CROSS_COMPILE_ARM32="${TC_DIR}/arm-linux-gnueabi-"
 
       - name: Package with AnyKernel3
         run: |
