@@ -25,14 +25,23 @@ jobs:
         run: |
           git clone --recurse-submodules https://github.com/realme-mediatek-dev/android_kernel_realme_mt6853.git -b android-12.0 kernel
 
-      - name: Ensure Optional Kconfig Include Exists
+      - name: Fix Missing Vendor Kconfig Includes
         run: |
-          mkdir -p kernel/sched_assist
-          if [ ! -f kernel/sched_assist/Kconfig ]; then
-            : > kernel/sched_assist/Kconfig
-            sed -i '/source "kernel\/sched_assist\/Kconfig"/d' kernel/init/Kconfig
+          # Define absolute paths to prevent step misalignments
+          KERNEL_DIR="${{ github.workspace }}/kernel"
+          
+          # Fix for sched_assist
+          mkdir -p "$KERNEL_DIR/kernel/sched_assist"
+          if [ ! -f "$KERNEL_DIR/kernel/sched_assist/Kconfig" ]; then
+            : > "$KERNEL_DIR/kernel/sched_assist/Kconfig"
           fi
           
+          # Fix for foreground_io_opt
+          mkdir -p "$KERNEL_DIR/block/foreground_io_opt"
+          if [ ! -f "$KERNEL_DIR/block/foreground_io_opt/Kconfig" ]; then
+            : > "$KERNEL_DIR/block/foreground_io_opt/Kconfig"
+          fi
+
       - name: Clone Toolchain (Clang)
         run: |
           git clone https://github.com/ZyCromerZ/Clang.git --depth=1 -b 14 ${{ github.workspace }}/clang-llvm
