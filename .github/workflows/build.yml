@@ -1,0 +1,80 @@
+name: Build Realme RMX2117 Kernel
+
+on:
+  workflow_dispatch: # Allows you to manually trigger the build with a button click
+
+jobs:
+  build-kernel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Maximize Build Space
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 8192
+          temp-reserve-mb: 2048
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libssl-dev bc liblz4-tool make
+
+      - name: Clone Kernel Source
+        run: |
+          git clone https://github.com/realme-mediatek-dev/android_kernel_realme_mt6853.git -b lineage-20 kernel
+          
+      - name: Clone Toolchain (Clang)
+        run: |
+          git clone https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 --depth=1 clang-source
+          # Extract a compatible Clang compiler version
+          mkdir -p clang
+          cp -r clang-source/clang-r416183b/* clang/
+
+      - name: Clone AnyKernel3 Template
+        run: |
+          git clone https://github.com/osm0sis/AnyKernel3.git --depth=1 anykernel
+
+      - name: Inject APatch Fixes into Defconfig
+        run: |
+          cd kernel
+          # Open the configuration file and force append the missing KALLSYMS lines to the bottom
+          echo "" >> arch/arm64/configs/k6853v1_64_defconfig
+          echo "CONFIG_KALLSYMS=y" >> arch/arm64/configs/k6853v1_64_defconfig
+          echo "CONFIG_KALLSYMS_ALL=y" >> arch/arm64/configs/k6853v1_64_defconfig
+          # Double check for stripping configurations
+          sed -i 's/CONFIG_STRIP_ASM_SYMS=y/# CONFIG_STRIP_ASM_SYMS is not set/g' arch/arm64/configs/k6853v1_64_defconfig
+
+      - name: Compile Kernel
+        run: |
+          cd kernel
+          export ARCH=arm64
+          export SUBARCH=arm64
+          export O=out
+          export PATH="${{ github.workspace }}/clang/bin:${PATH}"
+          
+          # Generate base layout configuration
+          make O=out k6853v1_64_defconfig
+          
+          # Compile using 4 cloud runner CPU threads
+          make -j4 O=out \
+            CC=clang \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            CLANG_TRIPLE=aarch64-linux-gnu-
+
+      - name: Package with AnyKernel3
+        run: |
+          # Copy the compiled kernel payload out into the installer zip folder setup
+          cp kernel/out/arch/arm64/boot/Image.gz-dtb anykernel/
+          cd anykernel
+          # Modify template parameters for your device model block matching
+          sed -i 's/device.name1=./device.name1=RMX2117/g' anykernel.sh
+          zip -r ../APatch_Supported_Kernel_RMX2117.zip *
+
+      - name: Upload Flashable ZIP to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: APatch_Kernel_RMX2117
+          path: APatch_Supported_Kernel_RMX2117.zip
