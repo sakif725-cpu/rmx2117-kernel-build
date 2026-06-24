@@ -44,6 +44,7 @@ jobs:
           rm -rf "$KERNEL_DIR/mm/malloc_track"
           rm -rf "$KERNEL_DIR/mm/task_mem"
           rm -rf "$KERNEL_DIR/mm/healthinfo"
+          rm -rf "$KERNEL_DIR/net/oplus_modules"
           
           # 2. Force create the clean directories
           mkdir -p "$KERNEL_DIR/kernel/sched_assist"
@@ -52,6 +53,7 @@ jobs:
           mkdir -p "$KERNEL_DIR/mm/malloc_track"
           mkdir -p "$KERNEL_DIR/mm/task_mem"
           mkdir -p "$KERNEL_DIR/mm/healthinfo"
+          mkdir -p "$KERNEL_DIR/net/oplus_modules"
           
           # 3. Create the empty dummy Kconfig files
           touch "$KERNEL_DIR/kernel/sched_assist/Kconfig"
@@ -60,6 +62,7 @@ jobs:
           touch "$KERNEL_DIR/mm/malloc_track/Kconfig.compat"
           touch "$KERNEL_DIR/mm/task_mem/Kconfig"
           touch "$KERNEL_DIR/mm/healthinfo/Kconfig"
+          touch "$KERNEL_DIR/net/oplus_modules/Kconfig"
 
       - name: Clone Toolchain (Clang)
         run: |
