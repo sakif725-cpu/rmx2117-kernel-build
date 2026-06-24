@@ -87,6 +87,48 @@ jobs:
             # Check if failure is due to a missing Kconfig include target
             if echo "$BUILD_LOG" | grep -q "can't open file"; then
               MISSING_FILE=$(echo "$BUILD_LOG" | grep "can't open file" | sed -e 's/.*can'\''t open file "//' -e 's/"//')
+
+              if [ -z "$MISSING_FILE" ]; then
+                echo "Missing file path validation failed: empty path."
+                exit $BUILD_STATUS
+              fi
+              if [[ "$MISSING_FILE" == /* ]]; then
+                echo "Missing file path validation failed: absolute path: $MISSING_FILE"
+                exit $BUILD_STATUS
+              fi
+              if [[ "$MISSING_FILE" == *".."* ]]; then
+                echo "Missing file path validation failed: contains directory traversal (..): $MISSING_FILE"
+                exit $BUILD_STATUS
+              fi
+
+              KERNEL_ROOT="$(realpath "$PWD")" || {
+                echo "Missing file path validation failed: unable to resolve kernel root path."
+                exit $BUILD_STATUS
+              }
+              PATH_TO_CHECK="$(dirname "$MISSING_FILE")"
+              while [ -n "$PATH_TO_CHECK" ] && [ "$PATH_TO_CHECK" != "." ] && [ "$PATH_TO_CHECK" != "/" ]; do
+                ABS_PATH_TO_CHECK="$(realpath -m "$PATH_TO_CHECK")" || {
+                  echo "Missing file path validation failed: unable to resolve path segment: $PATH_TO_CHECK"
+                  exit $BUILD_STATUS
+                }
+                if [ -z "$ABS_PATH_TO_CHECK" ]; then
+                  echo "Missing file path validation failed: empty resolved path for: $PATH_TO_CHECK"
+                  exit $BUILD_STATUS
+                fi
+                if [[ "$ABS_PATH_TO_CHECK" != "$KERNEL_ROOT" && "$ABS_PATH_TO_CHECK" != "$KERNEL_ROOT/"* ]]; then
+                  echo "Missing file path validation failed: outside kernel tree: $PATH_TO_CHECK"
+                  exit $BUILD_STATUS
+                fi
+                if [ -f "$PATH_TO_CHECK" ] || [ -L "$PATH_TO_CHECK" ]; then
+                  echo "-> Removing blocking path segment: $PATH_TO_CHECK"
+                  rm -f "$PATH_TO_CHECK"
+                fi
+                NEXT_PATH_TO_CHECK="$(dirname "$PATH_TO_CHECK")"
+                if [ "$NEXT_PATH_TO_CHECK" = "$PATH_TO_CHECK" ]; then
+                  break
+                fi
+                PATH_TO_CHECK="$NEXT_PATH_TO_CHECK"
+              done
               
               echo "-> Detected missing configuration target: $MISSING_FILE"
               echo "-> Dynamic resolution: Patching path environment..."
