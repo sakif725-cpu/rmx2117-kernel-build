@@ -40,18 +40,21 @@ jobs:
           # 1. Nuke whatever broken files/symlinks are blocking the paths
           rm -rf "$KERNEL_DIR/kernel/sched_assist"
           rm -rf "$KERNEL_DIR/block/foreground_io_opt"
+          rm -rf "$KERNEL_DIR/mm/multi_kswapd"
           rm -rf "$KERNEL_DIR/mm/malloc_track"
           rm -rf "$KERNEL_DIR/mm/task_mem"
           
           # 2. Force create the clean directories
           mkdir -p "$KERNEL_DIR/kernel/sched_assist"
           mkdir -p "$KERNEL_DIR/block/foreground_io_opt"
+          mkdir -p "$KERNEL_DIR/mm/multi_kswapd"
           mkdir -p "$KERNEL_DIR/mm/malloc_track"
           mkdir -p "$KERNEL_DIR/mm/task_mem"
           
           # 3. Create the empty dummy Kconfig files
           touch "$KERNEL_DIR/kernel/sched_assist/Kconfig"
           touch "$KERNEL_DIR/block/foreground_io_opt/Kconfig"
+          touch "$KERNEL_DIR/mm/multi_kswapd/Kconfig"
           touch "$KERNEL_DIR/mm/malloc_track/Kconfig.compat"
           touch "$KERNEL_DIR/mm/task_mem/Kconfig"
 
