@@ -33,37 +33,6 @@ jobs:
         run: |
           git clone --recurse-submodules https://github.com/realme-mediatek-dev/android_kernel_realme_mt6853.git -b android-12.0 kernel
 
-      - name: Fix Missing Vendor Kconfig Includes
-        run: |
-          KERNEL_DIR="${{ github.workspace }}/kernel"
-          
-          # 1. Nuke whatever broken files/symlinks are blocking the paths
-          rm -rf "$KERNEL_DIR/kernel/sched_assist"
-          rm -rf "$KERNEL_DIR/block/foreground_io_opt"
-          rm -rf "$KERNEL_DIR/mm/multi_kswapd"
-          rm -rf "$KERNEL_DIR/mm/malloc_track"
-          rm -rf "$KERNEL_DIR/mm/task_mem"
-          rm -rf "$KERNEL_DIR/mm/healthinfo"
-          rm -rf "$KERNEL_DIR/net/oplus_modules"
-          
-          # 2. Force create the clean directories
-          mkdir -p "$KERNEL_DIR/kernel/sched_assist"
-          mkdir -p "$KERNEL_DIR/block/foreground_io_opt"
-          mkdir -p "$KERNEL_DIR/mm/multi_kswapd"
-          mkdir -p "$KERNEL_DIR/mm/malloc_track"
-          mkdir -p "$KERNEL_DIR/mm/task_mem"
-          mkdir -p "$KERNEL_DIR/mm/healthinfo"
-          mkdir -p "$KERNEL_DIR/net/oplus_modules"
-          
-          # 3. Create the empty dummy Kconfig files
-          touch "$KERNEL_DIR/kernel/sched_assist/Kconfig"
-          touch "$KERNEL_DIR/block/foreground_io_opt/Kconfig"
-          touch "$KERNEL_DIR/mm/multi_kswapd/Kconfig"
-          touch "$KERNEL_DIR/mm/malloc_track/Kconfig.compat"
-          touch "$KERNEL_DIR/mm/task_mem/Kconfig"
-          touch "$KERNEL_DIR/mm/healthinfo/Kconfig"
-          touch "$KERNEL_DIR/net/oplus_modules/Kconfig"
-
       - name: Clone Toolchain (Clang)
         run: |
           git clone https://github.com/ZyCromerZ/Clang.git --depth=1 -b 14 ${{ github.workspace }}/clang-llvm
@@ -98,7 +67,34 @@ jobs:
           export CCACHE_DIR="${HOME}/.ccache"
           ccache -M 10G
           
-          make O=out k6853v1_64_defconfig
+          echo "Executing self-healing configuration engine..."
+          while true; do
+            # Run defconfig generation and capture output
+            BUILD_LOG=$(make O=out k6853v1_64_defconfig 2>&1)
+            BUILD_STATUS=$?
+            
+            if [ $BUILD_STATUS -eq 0 ]; then
+              echo "Defconfig generated successfully!"
+              break
+            fi
+            
+            # Check if failure is due to a missing Kconfig include target
+            if echo "$BUILD_LOG" | grep -q "can't open file"; then
+              MISSING_FILE=$(echo "$BUILD_LOG" | grep "can't open file" | sed -e 's/.*can'\''t open file "//' -e 's/"//')
+              
+              echo "-> Detected missing configuration target: $MISSING_FILE"
+              echo "-> Dynamic resolution: Patching path environment..."
+              
+              # Clear blockages, reconstruct folders, and write dummy config structures
+              rm -rf "$MISSING_FILE" "$(dirname "$MISSING_FILE")"
+              mkdir -p "$(dirname "$MISSING_FILE")"
+              touch "$MISSING_FILE"
+            else
+              echo "Defconfig engine hit an unresolvable structural error:"
+              echo "$BUILD_LOG"
+              exit $BUILD_STATUS
+            fi
+          done
           
           # Compile using ccache wrapped toolchain binaries
           make -j$(nproc) O=out \
