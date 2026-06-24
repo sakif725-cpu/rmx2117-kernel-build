@@ -27,10 +27,8 @@ jobs:
           
       - name: Clone Toolchain (Clang)
         run: |
-          git clone https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 --depth=1 clang-source
-          # Extract a compatible Clang compiler version
-          mkdir -p clang
-          cp -r clang-source/clang-r416183b/* clang/
+          # Pull down a clean, dedicated Android kernel Clang 12/13 build toolchain
+          git clone https://gitlab.com/ZyCromerZ/Clang.git --depth=1 -b 14 clang
 
       - name: Clone AnyKernel3 Template
         run: |
