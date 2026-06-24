@@ -69,9 +69,15 @@ jobs:
           
           echo "Executing self-healing configuration engine..."
           while true; do
+            # Temporarily disable GitHub Actions strict error crashing
+            set +e
+            
             # Run defconfig generation and capture output
             BUILD_LOG=$(make O=out k6853v1_64_defconfig 2>&1)
             BUILD_STATUS=$?
+            
+            # Re-enable strict error crashing
+            set -e
             
             if [ $BUILD_STATUS -eq 0 ]; then
               echo "Defconfig generated successfully!"
