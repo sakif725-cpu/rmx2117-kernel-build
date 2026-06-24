@@ -30,6 +30,7 @@ jobs:
           mkdir -p kernel/sched_assist
           if [ ! -f kernel/sched_assist/Kconfig ]; then
             : > kernel/sched_assist/Kconfig
+            sed -i '/source "kernel\/sched_assist\/Kconfig"/d' kernel/init/Kconfig
           fi
           
       - name: Clone Toolchain (Clang)
