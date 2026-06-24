@@ -23,7 +23,7 @@ jobs:
 
       - name: Clone Kernel Source
         run: |
-          git clone https://github.com/realme-mediatek-dev/android_kernel_realme_mt6853.git -b lineage-20 kernel
+          git clone https://github.com/realme-mediatek-dev/android_kernel_realme_mt6853.git kernel
           
       - name: Clone Toolchain (Clang)
         run: |
