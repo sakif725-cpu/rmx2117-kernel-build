@@ -1,7 +1,7 @@
 name: Build Realme RMX2117 Kernel
 
 on:
-  workflow_dispatch: # Allows you to manually trigger the build with a button click
+  workflow_dispatch:
 
 jobs:
   build-kernel:
@@ -19,7 +19,8 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libssl-dev bc liblz4-tool make
+          # Added gcc-aarch64-linux-gnu and gcc-arm-linux-gnueabi to provide the fallback assemblers for LLVM_IAS=0
+          sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libssl-dev bc liblz4-tool make kmod libncurses5-dev gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
 
       - name: Clone Kernel Source
         run: |
@@ -27,8 +28,7 @@ jobs:
           
       - name: Clone Toolchain (Clang)
         run: |
-          # Pull down a clean, dedicated Android kernel Clang 12/13 build toolchain
-          git clone https://gitlab.com/ZyCromerZ/Clang.git --depth=1 -b 14 clang
+          git clone https://github.com/ZyCromerZ/Clang.git --depth=1 -b 14 ${{ github.workspace }}/clang-llvm
 
       - name: Clone AnyKernel3 Template
         run: |
@@ -37,12 +37,13 @@ jobs:
       - name: Inject APatch Fixes into Defconfig
         run: |
           cd kernel
-          # Open the configuration file and force append the missing KALLSYMS lines to the bottom
-          echo "" >> arch/arm64/configs/k6853v1_64_defconfig
-          echo "CONFIG_KALLSYMS=y" >> arch/arm64/configs/k6853v1_64_defconfig
-          echo "CONFIG_KALLSYMS_ALL=y" >> arch/arm64/configs/k6853v1_64_defconfig
-          # Double check for stripping configurations
-          sed -i 's/CONFIG_STRIP_ASM_SYMS=y/# CONFIG_STRIP_ASM_SYMS is not set/g' arch/arm64/configs/k6853v1_64_defconfig
+          DEFCONFIG="arch/arm64/configs/k6853v1_64_defconfig"
+          echo "" >> $DEFCONFIG
+          echo "CONFIG_KALLSYMS=y" >> $DEFCONFIG
+          echo "CONFIG_KALLSYMS_ALL=y" >> $DEFCONFIG
+          echo "CONFIG_DEBUG_KERNEL=y" >> $DEFCONFIG
+          sed -i 's/CONFIG_STRIP_ASM_SYMS=y/# CONFIG_STRIP_ASM_SYMS is not set/g' $DEFCONFIG
+          sed -i 's/CONFIG_KALLSYMS_STRIP_NAMES=y/# CONFIG_KALLSYMS_STRIP_NAMES is not set/g' $DEFCONFIG
 
       - name: Compile Kernel
         run: |
@@ -50,25 +51,30 @@ jobs:
           export ARCH=arm64
           export SUBARCH=arm64
           export O=out
-          export PATH="${{ github.workspace }}/clang/bin:${PATH}"
+          export PATH="${{ github.workspace }}/clang-llvm/bin:${PATH}"
           
-          # Generate base layout configuration
           make O=out k6853v1_64_defconfig
           
-          # Compile using 4 cloud runner CPU threads
-          make -j4 O=out \
+          # Using dynamic threads. GNU fallback assembler will successfully bridge through system paths now
+          make -j$(nproc) O=out \
             CC=clang \
+            LLVM=1 \
+            LLVM_IAS=0 \
             CROSS_COMPILE=aarch64-linux-gnu- \
-            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-            CLANG_TRIPLE=aarch64-linux-gnu-
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi-
 
       - name: Package with AnyKernel3
         run: |
-          # Copy the compiled kernel payload out into the installer zip folder setup
-          cp kernel/out/arch/arm64/boot/Image.gz-dtb anykernel/
+          if [ -f kernel/out/arch/arm64/boot/Image.gz-dtb ]; then
+            cp kernel/out/arch/arm64/boot/Image.gz-dtb anykernel/
+          elif [ -f kernel/out/arch/arm64/boot/Image.gz ]; then
+            cp kernel/out/arch/arm64/boot/Image.gz anykernel/
+          else
+            cp kernel/out/arch/arm64/boot/Image anykernel/
+          fi
+          
           cd anykernel
-          # Modify template parameters for your device model block matching
-          sed -i 's/device.name1=./device.name1=RMX2117/g' anykernel.sh
+          sed -i 's/device.name1=generic/device.name1=RMX2117/g' anykernel.sh
           zip -r ../APatch_Supported_Kernel_RMX2117.zip *
 
       - name: Upload Flashable ZIP to GitHub
