@@ -126,6 +126,7 @@ jobs:
           done
           
           echo "Injecting Phantom Headers for missing Realme source code..."
+          rm -rf include/linux/sched_assist
           mkdir -p include/linux/sched_assist
           touch include/linux/sched_assist/sched_assist_mutex.h
           
