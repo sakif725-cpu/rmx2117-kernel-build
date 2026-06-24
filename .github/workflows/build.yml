@@ -19,7 +19,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libssl-dev bc liblz4-tool make kmod libncurses5-dev
+          sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libssl-dev bc liblz4-tool make kmod libncurses5-dev gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi lld
 
       - name: Setup Compiler Cache (ccache)
         uses: actions/cache@v4
@@ -129,6 +129,8 @@ jobs:
           rm -rf include/linux/sched_assist
           mkdir -p include/linux/sched_assist
           touch include/linux/sched_assist/sched_assist_mutex.h
+          touch include/linux/sched_assist/sched_assist_rwsem.h
+          touch include/linux/sched_assist/sched_assist_spinlock.h
           
           echo "Starting Core Kernel Compilation with Warning Shields..."
           
@@ -143,8 +145,8 @@ jobs:
             STRIP="llvm-strip" \
             LLVM=1 \
             LLVM_IAS=1 \
-            CROSS_COMPILE="${TC_DIR}/aarch64-linux-gnu-" \
-            CROSS_COMPILE_ARM32="${TC_DIR}/arm-linux-gnueabi-" \
+            CROSS_COMPILE="aarch64-linux-gnu-" \
+            CROSS_COMPILE_ARM32="arm-linux-gnueabi-" \
             KCFLAGS="-Wno-error -Wno-implicit-function-declaration -Wno-mismatched-return-types -Wno-format"
             
           # Print cache stats to terminal logs
