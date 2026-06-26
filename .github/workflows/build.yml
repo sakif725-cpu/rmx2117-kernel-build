@@ -1,12 +1,3 @@
-Ah, that is a classic path nesting mistake on my part!
-
-Because the script runs `cd kernel` at the very beginning of the step, the terminal is already inside the `kernel` folder. Writing `mkdir -p kernel/sched_assist` causes it to look for a folder named `kernel` *inside* the `kernel` folder, which causes a conflict.
-
-Since you are already inside the `kernel` directory, the command should just be `mkdir -p sched_assist`.
-
-Here is the fully corrected, complete GitHub Actions workflow file with the paths fixed so it will pass without throwing that directory error.
-
-```yaml
 name: Build Realme RMX2117 Kernel
 
 on:
@@ -140,5 +131,3 @@ jobs:
         uses: mxschmitt/action-tmate@v3
         with:
           limit-access-to-actor: true
-
-```
