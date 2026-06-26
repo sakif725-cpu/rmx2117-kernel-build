@@ -74,11 +74,16 @@ jobs:
           touch include/linux/sched_assist/sched_assist_spinlock.h
           touch include/linux/sched_assist/sched_assist_wait.h
           
+          echo "Generating configuration..."
+          # CRITICAL FIX: Generate the .config file before compiling
+          make O=out ARCH=arm64 k6853v1_64_defconfig
+          
           echo "Starting Core Kernel Compilation with Warning Shields..."
           
           # Force the use of LLVM tools for host and target to prevent assembler crashes
+          # OPTIMIZATION FIX: Added ccache prefix to CC
           make -j$(nproc) O=out \
-            CC="clang" \
+            CC="ccache clang" \
             LD="ld.lld" \
             AR="llvm-ar" \
             NM="llvm-nm" \
