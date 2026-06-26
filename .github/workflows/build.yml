@@ -68,20 +68,21 @@ jobs:
           echo "Injecting Phantom Headers for missing Realme source code..."
           rm -rf include/linux/sched_assist
           mkdir -p include/linux/sched_assist
-          # Creating a broad set of phantom headers to satisfy the compiler
           touch include/linux/sched_assist/sched_assist_mutex.h
           touch include/linux/sched_assist/sched_assist_rwsem.h
           touch include/linux/sched_assist/sched_assist_spinlock.h
           touch include/linux/sched_assist/sched_assist_wait.h
           
+          echo "Injecting Phantom Kconfig and Makefile for sched_assist..."
+          mkdir -p kernel/sched_assist
+          touch kernel/sched_assist/Kconfig
+          touch kernel/sched_assist/Makefile
+          
           echo "Generating configuration..."
-          # CRITICAL FIX: Generate the .config file before compiling
+          # Now this will succeed because the dummy Kconfig exists
           make O=out ARCH=arm64 k6853v1_64_defconfig
           
           echo "Starting Core Kernel Compilation with Warning Shields..."
-          
-          # Force the use of LLVM tools for host and target to prevent assembler crashes
-          # OPTIMIZATION FIX: Added ccache prefix to CC
           make -j$(nproc) O=out \
             CC="ccache clang" \
             LD="ld.lld" \
@@ -97,7 +98,6 @@ jobs:
             CROSS_COMPILE="aarch64-linux-gnu-" \
             CROSS_COMPILE_ARM32="arm-linux-gnueabi-" \
             KCFLAGS="-Wno-error -Wno-implicit-function-declaration -Wno-mismatched-return-types -Wno-format"
-
       - name: Package with AnyKernel3
         run: |
           if [ -f kernel/out/arch/arm64/boot/Image.gz-dtb ]; then
